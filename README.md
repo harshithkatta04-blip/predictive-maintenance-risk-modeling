@@ -1,59 +1,89 @@
-# Industrial Predictive Maintenance & Risk Modeling (AI4I 2020)
+# Intelligent Predictive Maintenance
 
-An end-to-end machine learning pipeline for early detection of industrial milling machine failures under severe class imbalance (**3.39% failure rate**), combining domain-informed physical feature engineering, model-aware preprocessing experiments, TreeSHAP diagnostics, and a multi-tier production inference module.
+Author: Harshith Katta
 
----
+## Business Understanding and Methodology
 
-## Key Results (Held-Out Test Set, $n = 1,500$)
+The objective is to identify machine failure risks and reduce
+unnecessary maintenance inspections.
 
-Evaluated strictly once on the untouched test partition using the tuned **Gradient Boosting Classifier** (`threshold = 0.511`):
+Dataset: UCI AI4I 2020 Predictive Maintenance.
+10,000 records, 339 failures, 3.39% failure rate.
+No missing values or duplicate records were identified.
 
-| Metric | Score | Operational Impact |
-| :--- | :---: | :--- |
-| **PR-AUC** | **0.9214** | High precision-recall ranking under 3.39% failure imbalance |
-| **ROC-AUC** | **0.9751** | Strong overall class discrimination |
-| **Precision** | **1.0000** | **0 false alarms** across 1,449 normal operating cycles |
-| **Recall** | **0.8039** | **41 of 51 actual failures caught** prior to breakdown |
-| **F1-Score / F2-Score** | **0.8913 / 0.8367** | Balanced precision-recall performance |
-| **Overall Accuracy** | **99.33%** | +2.73% lift over the 96.60% majority-class dummy baseline |
+Seven domain-based features were engineered from six original
+predictors. Identifiers and failure-mode indicators were excluded
+to prevent target leakage.
 
----
+Stratified training, validation and test splits of 70:15:15
+were used with preprocessing fitted on training data.
 
-## Engineering & Modeling Highlights
+## ANN Development and Research
 
-### 1. Physics-Informed Feature Engineering
-Raw sensor streams (`Air temperature`, `Process temperature`, `Rotational speed`, `Torque`, `Tool wear`, and product quality tier `Type`) were transformed into domain-specific physical indicators:
-* **`Power_deviation_W` (~33% model importance):** Absolute deviation from the nominal $6,250\text{ W}$ operating midpoint, converting two-sided power failure bounds ($<3,500\text{ W}$ or $>9,000\text{ W}$) into a monotonic risk signal.
-* **`Wear_torque_load_Nm*min` (~23% model importance):** Cumulative mechanical overstrain product (`Tool wear × Torque`) targeting Overstrain Failures (`OSF`).
-* **`Temp_diff_K` & `Thermal_speed_risk_K/rpm`:** Thermal dissipation gradient (`Process temp − Air temp`) normalized by spindle speed to isolate Heat Dissipation Failures (`HDF`).
-* **`Type_wear_limit_ratio`:** Tool wear normalized by quality-tier limits (`L: 200 min`, `M: 220 min`, `H: 240 min`).
+A baseline ANN and multiple traditional ML models were developed.
 
-### 2. Controlled Preprocessing Experiments
-Rather than applying a one-size-fits-all pipeline, preprocessing strategies were benchmarked across linear and tree-based model families:
-* **Linear Models (`Logistic Regression`):** `PowerTransformer` (Yeo-Johnson) + `OneHotEncoder(drop="first")` outperformed `StandardScaler` (`0.3906` PR-AUC) and `RobustScaler` (`0.3860` PR-AUC), reaching `0.4161` PR-AUC.
-* **Tree Ensembles (`Gradient Boosting`, `LightGBM`, `XGBoost`, `Random Forest`):** `OrdinalEncoder` (`L=0, M=1, H=2`) + raw physical units preserved scale invariance and real engineering units, outperforming linear baselines by **> +0.50 PR-AUC**.
+ANN experiments investigated dropout, architecture, initialization,
+L1/L2 regularization, class weighting and learning rate.
 
-### 3. Error Analysis & SHAP Explainability
-* **False Negative Audit:** Inspecting the 10 missed test failures revealed **7 stochastic Tool Wear Failures (`TWF`)** occurring inside the `[200, 240]` minute normal wear window and **3 boundary Heat Dissipation Failures (`HDF`)**—including row `3829` (`Predicted_Prob = 0.5107` vs. `0.5110` cutoff).
-* **Multi-Tier Production Alerting (`src/predict.py`):** Translates raw failure probabilities into three actionable maintenance tiers:
-  * `NORMAL` ($p < 0.20$)
-  * `WATCHLIST` ($0.20 \le p < 0.511$ — captures borderline thermal/wear drift for scheduled inspection)
-  * `CRITICAL` ($p \ge 0.511$ — immediate intervention with 100% historical precision)
+Total recorded experimental runs: 42.
 
----
+The optimized architecture uses 64 and 32 hidden neurons,
+ReLU, Glorot initialization, 20% dropout, L2 regularization
+of 0.001 and Adam with a learning rate of 0.001.
 
-## Repository Structure
+Mean validation Average Precision improved from approximately
+0.7363 to 0.7905 under the selected optimization sequence.
 
-```text
-├── data/                        # Raw and processed AI4I 2020 dataset splits
-├── models/
-│   └── gradient_boosting_champion.joblib  # Serialized pipeline, threshold & metadata
-├── notebooks/
-│   └── Predictive_Maintenance.ipynb       # Full EDA, experiments, tuning & SHAP analysis
-├── reports/
-│   ├── test_evaluation_summary.png        # Confusion matrix, PR curve & feature importance
-│   ├── shap_summary_beeswarm.png          # Global TreeSHAP feature impact
-│   └── shap_waterfall_row3829.png         # Local SHAP explanation for borderline HDF case
-├── src/
-│   └── predict.py                         # Standalone batch/real-time inference script
-└── requirements.txt                       # Reproducible Python environment dependencies
+The experiments do not establish consistent ANN superiority.
+
+## Business Recommendations
+
+Validation-selected model: Gradient Boosting (Tuned)
+Decision threshold: 0.011187
+
+Validation cost: INR 74,000
+Test cost: INR 90,000
+Test recall: 96.08%
+Test Average Precision: 0.9214
+
+Lowest observed test cost: Gradient Boosting (Tuned)
+Highest observed test Average Precision: Gradient Boosting (Tuned)
+
+Hypothetical costs:
+Inspection = INR 500.
+Missed failure = INR 10,000.
+
+High-risk records should receive prioritized inspection.
+Medium-risk records require additional monitoring.
+Low-risk records continue routine maintenance.
+
+Limitations include synthetic data, rare failures, repeated
+validation-set reuse, previously inspected test results,
+uncalibrated risk scores and hypothetical operational costs.
+
+Real-world deployment requires further prospective validation.
+
+
+## Dataset
+https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset
+
+## Execution
+1. Install dependencies using pip install -r requirements.txt.
+2. Place the dataset in data/ai4i2020.csv.
+3. Open notebooks/Predictive_Maintenance.ipynb.
+4. Retain the saved Gradient Boosting pipeline for artifact recovery.
+
+## Final Test Results
+
+```
+                         Model  Threshold  Accuracy  Precision  Recall  F1-Score  ROC-AUC  PR-AUC   TN  FP  FN  TP  Business Cost
+     Gradient Boosting (Tuned)     0.0112    0.9380     0.3500  0.9608    0.5131   0.9751  0.9214 1358  91   2  49          90000
+           Optimized ANN (5:1)     0.1319    0.9367     0.3382  0.9020    0.4920   0.9856  0.8070 1359  90   5  46         118000
+   Gradient Boosting (Default)     0.0086    0.9347     0.3333  0.9216    0.4896   0.9587  0.8917 1355  94   4  47         110500
+           LightGBM (Weighted)     0.3623    0.9720     0.5570  0.8627    0.6769   0.9847  0.8802 1414  35   7  44         109500
+      Random Forest (Balanced)     0.0600    0.9453     0.3740  0.9020    0.5287   0.9703  0.9084 1372  77   5  46         111500
+          Optimized ANN (10:1)     0.1724    0.9233     0.2975  0.9216    0.4498   0.9832  0.7748 1338 111   4  47         119000
+            XGBoost (Weighted)     0.1468    0.9327     0.3239  0.9020    0.4767   0.9860  0.8771 1353  96   5  46         121000
+                  Baseline ANN     0.2257    0.9060     0.2581  0.9412    0.4051   0.9773  0.7431 1311 138   3  48         123000
+Logistic Regression (Balanced)     0.4575    0.8540     0.1719  0.8627    0.2866   0.9452  0.4696 1237 212   7  44         198000
+```

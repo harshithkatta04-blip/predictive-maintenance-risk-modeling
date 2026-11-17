@@ -4,8 +4,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
-# Reference wear limits per product quality tier (AI4I 2020 domain specs)
-TYPE_WEAR_LIMITS = {"L": 200.0, "M": 220.0, "H": 240.0}
+# Reference wear limits used in training (engineering assumptions)
+TYPE_WEAR_LIMITS = {"L": 180.0, "M": 200.0, "H": 220.0}
 NOMINAL_POWER_W = 6250.0  # Midpoint of [3500 W, 9000 W] operating band
 
 
@@ -17,9 +17,9 @@ def engineer_features(df_raw: pd.DataFrame) -> pd.DataFrame:
     df["Power [W]"] = df["Torque [Nm]"] * (df["Rotational speed [rpm]"] * 2 * np.pi / 60.0)
     df["Temp_diff [K]"] = df["Process temperature [K]"] - df["Air temperature [K]"]
     df["Power_deviation [W]"] = np.abs(df["Power [W]"] - NOMINAL_POWER_W)
-    df["Thermal_speed_risk [K/rpm]"] = df["Temp_diff [K]"] / (df["Rotational speed [rpm]"] + 1e-6)
+    df["Thermal_speed_risk [K/rpm]"] = df["Temp_diff [K]"] / df["Rotational speed [rpm]"]
     df["Wear_torque_load [Nm*min]"] = df["Tool wear [min]"] * df["Torque [Nm]"]
-    df["Torque_speed_ratio [Nm/rpm]"] = df["Torque [Nm]"] / (df["Rotational speed [rpm]"] + 1e-6)
+    df["Torque_speed_ratio [Nm/rpm]"] = df["Torque [Nm]"] / df["Rotational speed [rpm]"]
     df["Type_wear_limit_ratio"] = df["Tool wear [min]"] / df["Type"].map(TYPE_WEAR_LIMITS)
 
     # Sanitize column names to match training pipeline
